@@ -6,6 +6,6 @@
 &emsp;&emsp;(5)Type in RPC command. First, put the mbed on the table. After the initialization process, you can tilt the mbed. The gesture will be displayed on uLCD. The event will be published through WiFi/MQTT. After 10 gesture events, 2 figures will be published through WiFi/MQTT. The mbed will be back to RPC loop.    
 
 2.what are the results  
-&emsp;&emsp;circuit: https://github.com/Lyds099/exam2/blob/master/832498521.jpg?raw=true 
+&emsp;&emsp;circuit: https://github.com/Lyds099/exam2/blob/master/832498521.jpg?raw=true  
 &emsp;&emsp;terminal(event): https://github.com/Lyds099/exam2/blob/master/Screen%20Shot%202021-05-12%20at%206.10.09%20PM.png?raw=true    
 &emsp;&emsp;terminal(figure): https://github.com/Lyds099/exam2/blob/master/Screen%20Shot%202021-05-12%20at%206.29.59%20PM.png?  raw=true
