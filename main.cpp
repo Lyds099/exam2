@@ -46,16 +46,9 @@ DigitalOut myled3(LED3);
 DigitalIn mypin(USER_BUTTON);
 
 BufferedSerial pc(USBTX, USBRX);
-void gesture(Arguments *in, Reply *out);
-void angleD(Arguments *in, Reply *out);
-RPCFunction rpcUI(&gesture, "gesture");
-RPCFunction rpcDetection(&angleD, "angleD");
-
 void capture(Arguments *in, Reply *out);
 RPCFunction rpcAcc(&capture, "capture");
 
-Thread UIThread(osPriorityLow);
-Thread detectionThread(osPriorityLow);
 Thread captureThread(osPriorityLow);
 
 int pre_angle = 0;
@@ -67,10 +60,13 @@ int over_threshold = 0;//flag
 int over_count = 0;
 
 int gesture_id;
+int gestures[15];
 int event_num;
 int is_gasture = 0;//flag
 int accData_index = 0;
 float a, b, c;
+int features[5];
+int plot_fig = 0;//flag
 
 // Store x, y, z data
 int16_t pDataXYZ[3] = {0};
@@ -250,171 +246,6 @@ void display_gesture(){
         uLCD.printf("%d",(int)gesture_id);
 }
 
-int gestureUI_mode(){
-
-  myled1 = 1;
-    // Whether we should clear the buffer next time we fetch data
-  bool should_clear_buffer = false;
-  bool got_data = false;
-
-  // The gesture index of the prediction
-  int gesture_index;
-
-  // Set up logging.
-  static tflite::MicroErrorReporter micro_error_reporter;
-  tflite::ErrorReporter* error_reporter = &micro_error_reporter;
-
-  // Map the model into a usable data structure. This doesn't involve any
-  // copying or parsing, it's a very lightweight operation.
-  const tflite::Model* model = tflite::GetModel(g_magic_wand_model_data);
-  if (model->version() != TFLITE_SCHEMA_VERSION) {
-    error_reporter->Report(
-        "Model provided is schema version %d not equal "
-        "to supported version %d.",
-        model->version(), TFLITE_SCHEMA_VERSION);
-    return -1;
-  }
-
-  // Pull in only the operation implementations we need.
-  // This relies on a complete list of all the ops needed by this graph.
-  // An easier approach is to just use the AllOpsResolver, but this will
-  // incur some penalty in code space for op implementations that are not
-  // needed by this graph.
-  static tflite::MicroOpResolver<6> micro_op_resolver;
-  micro_op_resolver.AddBuiltin(
-      tflite::BuiltinOperator_DEPTHWISE_CONV_2D,
-      tflite::ops::micro::Register_DEPTHWISE_CONV_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_MAX_POOL_2D,
-                               tflite::ops::micro::Register_MAX_POOL_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_CONV_2D,
-                               tflite::ops::micro::Register_CONV_2D());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_FULLY_CONNECTED,
-                               tflite::ops::micro::Register_FULLY_CONNECTED());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
-                               tflite::ops::micro::Register_SOFTMAX());
-  micro_op_resolver.AddBuiltin(tflite::BuiltinOperator_RESHAPE,
-                               tflite::ops::micro::Register_RESHAPE(), 1);
-
-  // Build an interpreter to run the model with
-  static tflite::MicroInterpreter static_interpreter(
-      model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
-  tflite::MicroInterpreter* interpreter = &static_interpreter;
-
-  // Allocate memory from the tensor_arena for the model's tensors
-  interpreter->AllocateTensors();
-
-  // Obtain pointer to the model's input tensor
-  TfLiteTensor* model_input = interpreter->input(0);
-  if ((model_input->dims->size != 4) || (model_input->dims->data[0] != 1) ||
-      (model_input->dims->data[1] != config.seq_length) ||
-      (model_input->dims->data[2] != kChannelNumber) ||
-      (model_input->type != kTfLiteFloat32)) {
-    error_reporter->Report("Bad input tensor parameters in model");
-    return -1;
-  }
-
-  int input_length = model_input->bytes / sizeof(float);
-
-  TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
-  if (setup_status != kTfLiteOk) {
-    error_reporter->Report("Set up failed\n");
-    return -1;
-  }
-
-  //error_reporter->Report("Set up successful...\n");
-
-  while (true) {
-    // Attempt to read new data from the accelerometer
-    got_data = ReadAccelerometer(error_reporter, model_input->data.f,
-                                 input_length, should_clear_buffer);
-
-    // If there was no new data,
-    // don't try to clear the buffer again and wait until next time
-    if (!got_data) {
-      should_clear_buffer = false;
-      continue;
-    }
-
-    // Run inference, and report any error
-    TfLiteStatus invoke_status = interpreter->Invoke();
-    if (invoke_status != kTfLiteOk) {
-      error_reporter->Report("Invoke failed on index: %d\n", begin_index);
-      continue;
-    }
-
-    // Analyze the results to obtain a prediction
-    gesture_index = PredictGesture(interpreter->output(0)->data.f);
-
-    // Clear the buffer next time we read data
-    should_clear_buffer = gesture_index < label_num;
-
-    // Produce an output
-    if (gesture_index < label_num) {
-      if(gesture_index==0) choose_angle = 30;
-      else if(gesture_index==1) choose_angle = 45;
-      else if(gesture_index==2) choose_angle = 60;
-    }
-    if(!mypin){
-        angle = choose_angle;
-        angle_set = 1;
-    }
-    if(pre_angle!=choose_angle || angle_set){
-        display_freq();
-        pre_angle = choose_angle;
-    }
-    if(angle_set==1){
-        mqtt_queue.call(&publish_message, global_client);
-        global_client->yield(500);
-        myled1 = 0;
-        angle_set = 0;
-        //break;
-        UIThread.terminate();
-    }
-  }
-}
-
-void gesture(Arguments *in, Reply *out){
-    UIThread.start(&gestureUI_mode);
-}
-
-void angleDetection_mode(){
-
-   myled3 = 1;
-   int16_t pDataXYZ[3] = {0};
-   myled1 = 1;
-   myled2 = 1;
-   ThisThread::sleep_for(2000ms);
-   BSP_ACCELERO_AccGetXYZ(pDataXYZ);
-   angle_reference = atan ((double)pDataXYZ[0]/(double)pDataXYZ[2]) * 180.0 / 3.141592653589793238462;
-   myled1 = 0;
-   myled2 = 0;
-
-   over_count = 0;
-   while(true){
-        BSP_ACCELERO_AccGetXYZ(pDataXYZ);
-        angle_result = atan ((double)pDataXYZ[0]/(double)pDataXYZ[2]) * 180.0 / 3.141592653589793238462;
-        if(angle_reference>0) angle_result = angle_result - angle_reference;
-        else angle_result = angle_result + abs(angle_reference);
-        if(angle_result > (double)angle){
-            over_threshold = 1;
-            mqtt_queue.call(&publish_message, global_client);
-            over_threshold = 0;
-            over_count += 1;
-        }
-        if(over_count>=10){
-            global_client->yield(500);
-            myled3 = 0;
-            //break;
-            detectionThread.terminate();
-        }
-        display_angle();
-        ThisThread::sleep_for(500ms);
-   }
-}
-
-void angleD(Arguments *in, Reply *out){
-    detectionThread.start(&angleDetection_mode);
-}
 
 void AccCapture_mode(){
 
@@ -527,6 +358,7 @@ void AccCapture_mode(){
     if (gesture_index < label_num) {
         is_gasture = 1;
         gesture_id = gesture_index;
+        gestures[event_num-1] = gesture_id;
         mqtt_queue.call(&publish_message, global_client);
         global_client->yield(500);
         display_gesture();
@@ -534,6 +366,7 @@ void AccCapture_mode(){
         event_num++;
     }
     //extract feature
+    accData_index = 0;
     for(int k=0; k<200; k++){
       a = save_data[accData_index++];
       b = save_data[accData_index++];
@@ -541,14 +374,18 @@ void AccCapture_mode(){
       angle_result = atan ((double)a/(double)c) * 180.0 / 3.141592653589793238462;
       if(angle_reference>0) angle_result = angle_result - angle_reference;
       else angle_result = angle_result + abs(angle_reference);
+      if(angle_result==0) features[0] += 1;
+      else if(angle_result>0 && angle_result<30) features[1] += 1;
+      else if(angle_result>=30 && angle_result<60) features[2] += 1;
+      else if(angle_result>=60 && angle_result<90) features[3] += 1;
     }
-    if(angle_set==1){
+    if(event_num>=11){
+        plot_fig = 1;
         mqtt_queue.call(&publish_message, global_client);
         global_client->yield(500);
-        myled1 = 0;
-        angle_set = 0;
+        plot_fig = 0;
         //break;
-        UIThread.terminate();
+        captureThread.terminate();
     }
   }
 }
