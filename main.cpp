@@ -60,12 +60,12 @@ int over_threshold = 0;//flag
 int over_count = 0;
 
 int gesture_id;
-int gestures[15];
+int gestures[12];
 int event_num;
 int is_gasture = 0;//flag
 int accData_index = 0;
 float a, b, c;
-int features[5];
+int features[12][5];
 int plot_fig = 0;//flag
 
 // Store x, y, z data
@@ -99,9 +99,61 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
     MQTT::Message message;
     char buff[200];
     BSP_ACCELERO_AccGetXYZ(pDataXYZ);
-    if(angle_set) sprintf(buff, "threshold angle: %d", angle);
-    else if(over_threshold) sprintf(buff, "The tilt angle is over the selected threshold angle, angle: %f", angle_result);
-    else if(is_gasture) sprintf(buff, "The gesture ID is %d. event sequence number:#%d", gesture_id, event_num);
+    if(is_gasture){
+        sprintf(buff, "The gesture ID is %d. event sequence number:#%d", gesture_id, event_num);
+        message.qos = MQTT::QOS0;
+        message.retained = false;
+        message.dup = false;
+        message.payload = (void*) buff;
+        message.payloadlen = strlen(buff) + 1;
+        int rc = client->publish(topic, message);
+
+        printf("rc:  %d\r\n", rc);
+        printf("Puslish message: %s\r\n", buff);
+        ThisThread::sleep_for(500ms);
+    }
+    else if(plot_fig){
+        for(int k=0; k<3; k++){
+           if(k==0) sprintf(buff, "The classified gesture events");
+           else if(k==1) sprintf(buff, "No 0 1 2 3 4 5 6 7 8 9 10");
+           else if(k==2) sprintf(buff, "ID %d %d %d %d %d %d %d %d %d %d %d",gestures[0],gestures[1],gestures[2],
+               gestures[3],gestures[4],gestures[5],gestures[6],gestures[7],gestures[8],gestures[9]);
+
+           message.qos = MQTT::QOS0;
+           message.retained = false;
+           message.dup = false;
+           message.payload = (void*) buff;
+           message.payloadlen = strlen(buff) + 1;
+           int rc = client->publish(topic, message);
+           
+           printf("rc:  %d\r\n", rc);
+           printf("Puslish message: %s\r\n", buff);
+           ThisThread::sleep_for(500ms);
+        }
+        for(int k=0; k<6; k++){
+          if(k==0) sprintf(buff, "The extracted features");
+           else if(k==1) sprintf(buff, "No     0  1  2  3  4  5  6  7  8  9  10");
+           else if(k==2) sprintf(buff, "ang= 0 %3d%3d%3d%3d%3d%3d%3d%3d%3d%3d", features[0][0],features[1][0],features[2][0],
+           features[3][0],features[4][0],features[5][0],features[6][0],features[7][0],features[8][0],features[9][0]);
+           else if(k==3) sprintf(buff, "ang>0  %3d%3d%3d%3d%3d%3d%3d%3d%3d%3d", features[0][1],features[1][1],features[2][1],
+           features[3][1],features[4][1],features[5][1],features[6][1],features[7][1],features[8][1],features[9][1]);
+           else if(k==4) sprintf(buff, "ang>30 %3d%3d%3d%3d%3d%3d%3d%3d%3d%3d", features[0][2],features[1][2],features[2][2],
+           features[3][2],features[4][2],features[5][2],features[6][2],features[7][2],features[8][2],features[9][2]);
+           else if(k==5) sprintf(buff, "ang>60 %3d%3d%3d%3d%3d%3d%3d%3d%3d%3d", features[0][3],features[1][3],features[2][3],
+           features[3][3],features[4][3],features[5][3],features[6][3],features[7][3],features[8][3],features[9][3]);
+
+           message.qos = MQTT::QOS0;
+           message.retained = false;
+           message.dup = false;
+           message.payload = (void*) buff;
+           message.payloadlen = strlen(buff) + 1;
+           int rc = client->publish(topic, message);
+           
+           printf("rc:  %d\r\n", rc);
+           printf("Puslish message: %s\r\n", buff);
+           ThisThread::sleep_for(500ms);
+        }
+    }
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
@@ -374,10 +426,10 @@ void AccCapture_mode(){
       angle_result = atan ((double)a/(double)c) * 180.0 / 3.141592653589793238462;
       if(angle_reference>0) angle_result = angle_result - angle_reference;
       else angle_result = angle_result + abs(angle_reference);
-      if(angle_result==0) features[0] += 1;
-      else if(angle_result>0 && angle_result<30) features[1] += 1;
-      else if(angle_result>=30 && angle_result<60) features[2] += 1;
-      else if(angle_result>=60 && angle_result<90) features[3] += 1;
+      if(angle_result==0) features[event_num-1][0] += 1;
+      else if(angle_result>0 && angle_result<30) features[event_num-1][1] += 1;
+      else if(angle_result>=30 && angle_result<60) features[event_num-1][2] += 1;
+      else if(angle_result>=60 && angle_result<90) features[event_num-1][3] += 1;
     }
     if(event_num>=11){
         plot_fig = 1;
