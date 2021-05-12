@@ -8,4 +8,4 @@
 2.what are the results  
 &emsp;&emsp;circuit: https://github.com/Lyds099/exam2/blob/master/832498521.jpg?raw=true  
 &emsp;&emsp;terminal(event): https://github.com/Lyds099/exam2/blob/master/Screen%20Shot%202021-05-12%20at%206.10.09%20PM.png?raw=true    
-&emsp;&emsp;terminal(figure): https://github.com/Lyds099/exam2/blob/master/Screen%20Shot%202021-05-12%20at%206.29.59%20PM.png?  raw=true
+&emsp;&emsp;terminal(figure): https://github.com/Lyds099/exam2/blob/master/Screen%20Shot%202021-05-12%20at%206.29.59%20PM.png?raw=true
