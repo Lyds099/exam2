@@ -65,7 +65,7 @@ int event_num;
 int is_gasture = 0;//flag
 int accData_index = 0;
 float a, b, c;
-int features[12][5];
+int features[12][5]={0};
 int plot_fig = 0;//flag
 
 // Store x, y, z data
@@ -154,16 +154,16 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
            ThisThread::sleep_for(500ms);
         }
     }
-    message.qos = MQTT::QOS0;
-    message.retained = false;
-    message.dup = false;
-    message.payload = (void*) buff;
-    message.payloadlen = strlen(buff) + 1;
-    int rc = client->publish(topic, message);
+    // message.qos = MQTT::QOS0;
+    // message.retained = false;
+    // message.dup = false;
+    // message.payload = (void*) buff;
+    // message.payloadlen = strlen(buff) + 1;
+    // int rc = client->publish(topic, message);
 
-    printf("rc:  %d\r\n", rc);
-    printf("Puslish message: %s\r\n", buff);
-    ThisThread::sleep_for(500ms);
+    // printf("rc:  %d\r\n", rc);
+    // printf("Puslish message: %s\r\n", buff);
+    // ThisThread::sleep_for(500ms);
 }
 
 void close_mqtt() {
@@ -292,9 +292,9 @@ void display_gesture(){
         uLCD.text_height(2);
         uLCD.textbackground_color(BLACK);
         uLCD.color(WHITE);
-        uLCD.locate(3,1);
+        uLCD.locate(2,1);
         uLCD.printf("Gesture");
-        uLCD.locate(3,3);
+        uLCD.locate(2,3);
         uLCD.printf("%d",(int)gesture_id);
 }
 
